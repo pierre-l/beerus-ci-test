@@ -1,8 +1,6 @@
-use beerus_core::block_hash::compute_block_hash;
+use beerus_core::{block_hash::compute_block_hash, l2_client::L2ClientExt};
 use starknet::{
-    core::types::{
-        BlockId, BlockTag, Event, EventFilter, MaybePendingBlockWithTxs,
-    },
+    core::types::{BlockId, BlockTag, MaybePendingBlockWithTxs},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
 };
 use url::Url;
@@ -23,42 +21,7 @@ async fn verify_latest_block_hash() {
         _ => panic!("unexpected block response type"),
     };
 
-    let page_size = 1024;
-    let mut events = vec![];
-    let mut last_token = None;
-    let mut continue_ = true;
-
-    while continue_ {
-        let events_page = rpc_client
-            .get_events(
-                EventFilter {
-                    from_block: Some(block_id),
-                    to_block: Some(block_id),
-                    address: None,
-                    keys: None,
-                },
-                last_token,
-                page_size,
-            )
-            .await
-            .unwrap();
-        last_token = events_page.continuation_token;
-
-        if last_token.is_none() {
-            continue_ = false;
-        }
-
-        let mut new_events = events_page
-            .events
-            .into_iter()
-            .map(|e| Event {
-                from_address: e.from_address,
-                keys: e.keys,
-                data: e.data,
-            })
-            .collect::<Vec<Event>>();
-        events.append(&mut new_events);
-    }
+    let events = rpc_client.get_block_events(block_id).await;
 
     let expected = block.block_hash;
     assert_eq!(compute_block_hash(&block, &events), expected);

@@ -1,6 +1,7 @@
 pub mod block_hash;
 pub mod client;
 pub mod config;
+pub mod l2_client;
 pub mod storage_proofs;
 pub mod utils;
 

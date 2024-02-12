@@ -16,16 +16,16 @@ use helios::types::BlockTag;
 use serde_json::json;
 use starknet::core::types::{
     BlockId, BlockTag as StarknetBlockTag, FieldElement,
-    MaybePendingBlockWithTxHashes,
 };
 use starknet::providers::jsonrpc::{HttpTransport, JsonRpcClient};
-use starknet::providers::Provider;
 use tokio::sync::RwLock;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task;
 use tracing::{debug, error, info};
 
+use crate::block_hash::compute_block_hash;
 use crate::config::Config;
+use crate::l2_client::L2ClientExt;
 use crate::storage_proofs::types::StorageProofResponse;
 use crate::storage_proofs::StorageProof;
 use crate::utils::*;
@@ -159,6 +159,7 @@ impl BeerusClient {
         })
     }
 
+    // TODO 550 Update the sequence diagram
     #[cfg_attr(doc, aquamarine::aquamarine)]
     /// Start a async thread to query the last updated state of Starknet
     /// via the Core Contracts on L1(updated via the `updateState` call).
@@ -339,37 +340,52 @@ async fn sync(
         get_starknet_state_block_number(l1_client, core_contract_addr).await?;
     let local_block_number = node.read().await.l1_block_number;
 
-    debug!("starknet block number: {l1_starknet_block_number}, local block number: {local_block_number}");
-    // The local state is up to date with the remote node. Nothing more to do.
-    if local_block_number >= l1_starknet_block_number {
-        return Ok(None);
-    }
+    info!("starknet block number: {l1_starknet_block_number}, local block number: {local_block_number}");
 
     // The local state is out of date, retrieve the latest block from L2.
-    // TODO: Issue #550 - feat: sync from proven root
-    match l2_client
-        .get_block_with_tx_hashes(BlockId::Tag(StarknetBlockTag::Latest))
-        .await
-    {
-        Ok(MaybePendingBlockWithTxHashes::Block(l2_latest_block)) => {
-            let blocks_behind =
-                l2_latest_block.block_number - l1_starknet_block_number;
-            info!(
-                "L1 block: {}, L2 block: {} (L1 is {} blocks behind)",
-                l1_starknet_block_number,
-                l2_latest_block.block_number,
-                blocks_behind
-            );
+    let l2_latest_block = l2_client
+        .get_confirmed_block_with_tx_hashes(BlockId::Tag(
+            StarknetBlockTag::Latest,
+        ))
+        .await?;
 
-            let mut guard = node.write().await;
-            guard.update(l1_starknet_block_number, starknet_state_root);
-            Ok(Some(l2_latest_block.block_number))
+    let mut synced_block = l1_starknet_block_number;
+    // Hash the block one by one.
+    while synced_block <= l2_latest_block.block_number {
+        let candidate_number = synced_block + 1;
+        let id = BlockId::Number(candidate_number);
+
+        let block = l2_client.get_confirmed_block_with_txs(id).await?;
+
+        // TODO 550 Check the parent hash too.
+
+        let events = l2_client.get_block_events(id).await;
+
+        let hash = compute_block_hash(&block, &events);
+
+        if hash != block.block_hash {
+            return Err(eyre!(
+                "Sync from proven root failed: invalid block hash at height {}",
+                candidate_number
+            ));
         }
-        Ok(MaybePendingBlockWithTxHashes::PendingBlock(_)) => {
-            Err(eyre!("expecting latest got pending"))
-        }
-        Err(e) => Err(eyre!("failed to fetch last block: {e}")),
+
+        synced_block = candidate_number;
+        // TODO 550
+        info!("Caught up with new L2 block: {}", synced_block);
+
+        // TODO 550 Update the local state
     }
+
+    let blocks_behind = l2_latest_block.block_number - l1_starknet_block_number;
+    info!(
+        "L1 block: {}, L2 block: {} (L1 is {} blocks behind)",
+        l1_starknet_block_number, l2_latest_block.block_number, blocks_behind
+    );
+
+    let mut guard = node.write().await;
+    guard.update(l1_starknet_block_number, starknet_state_root);
+    Ok(Some(l2_latest_block.block_number))
 }
 
 async fn get_starknet_state_root(
