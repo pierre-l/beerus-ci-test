@@ -23,7 +23,7 @@ pub trait L2ClientExt {
     fn get_block_events(
         &self,
         block_id: BlockId,
-    ) -> impl std::future::Future<Output = Vec<Event>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<Event>>> + Send;
 }
 
 impl L2ClientExt for JsonRpcClient<HttpTransport> {
@@ -53,7 +53,7 @@ impl L2ClientExt for JsonRpcClient<HttpTransport> {
         }
     }
 
-    async fn get_block_events(&self, block_id: BlockId) -> Vec<Event> {
+    async fn get_block_events(&self, block_id: BlockId) -> Result<Vec<Event>> {
         let page_size = 1024;
         let mut events = vec![];
         let mut last_token = None;
@@ -71,8 +71,7 @@ impl L2ClientExt for JsonRpcClient<HttpTransport> {
                     last_token,
                     page_size,
                 )
-                .await
-                .unwrap();
+                .await?;
             last_token = events_page.continuation_token;
 
             if last_token.is_none() {
@@ -91,6 +90,6 @@ impl L2ClientExt for JsonRpcClient<HttpTransport> {
             events.append(&mut new_events);
         }
 
-        events
+        Ok(events)
     }
 }

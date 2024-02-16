@@ -56,12 +56,9 @@ pub fn compute_block_hash(
 fn calculate_transaction_commitment(
     transactions: &[Transaction],
 ) -> FieldElement {
-    let final_hashes = transactions
+    calculate_root(transactions
         .iter()
-        .map(calculate_transaction_hash_with_signature)
-        .collect();
-
-    calculate_root(final_hashes)
+        .map(calculate_transaction_hash_with_signature))
 }
 
 fn calculate_transaction_hash_with_signature(tx: &Transaction) -> FieldElement {
@@ -114,9 +111,7 @@ fn calculate_signature_hash(signature: &[FieldElement]) -> FieldElement {
 /// constructed by adding the (event_index, event_hash) key-value pairs to the
 /// tree and computing the root hash.
 fn calculate_event_commitment(events: &[Event]) -> FieldElement {
-    let event_hashes = events.iter().map(calculate_event_hash).collect();
-
-    calculate_root(event_hashes)
+    calculate_root(events.iter().map(calculate_event_hash))
 }
 
 /// Ported from [Pathfinder](https://github.com/eqlabs/pathfinder/blob/v0.10.3/crates/pathfinder/src/state/block_hash.rs#L454)
@@ -126,9 +121,17 @@ fn calculate_event_commitment(events: &[Event]) -> FieldElement {
 /// for details.
 fn calculate_event_hash(event: &Event) -> FieldElement {
     let mut keys_hash = HashChain::default();
-    for key in event.keys.iter() {
-        keys_hash.update(*key);
+
+    // TODO 550 Make sure this is necessary, or get rid of this.
+    if event.keys.len() == 1 && event.keys[0] == FieldElement::from_bytes_be(&[0u8; 32]).unwrap(){
+        // Pathfinder may return a zeroed key in the case of an empty array.
+        // This breaks block hashes. Skip it.
+    } else {
+        for key in event.keys.iter() {
+            keys_hash.update(*key);
+        }
     }
+    
     let keys_hash = keys_hash.finalize();
 
     let mut data_hash = HashChain::default();

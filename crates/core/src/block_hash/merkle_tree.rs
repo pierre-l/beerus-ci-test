@@ -52,12 +52,12 @@ enum SubTreeSplitting {
 
 /// Calculates Patricia hash root on the given values.
 /// The values are keyed by consecutive numbers, starting from 0.
-pub fn calculate_root(values: Vec<FieldElement>) -> FieldElement {
-    if values.is_empty() {
+pub fn calculate_root(values: impl IntoIterator<Item=FieldElement>) -> FieldElement {
+    let mut values = values.into_iter().peekable();
+    if values.peek().is_none() {
         return FieldElement::ZERO;
     }
     let leaves: Vec<Entry> = values
-        .into_iter()
         .zip(0u64..)
         .map(|(felt, idx)| Entry { key: idx.to_be_bytes().into(), value: felt })
         .collect();
@@ -149,7 +149,7 @@ mod tests {
     // roots of PatriciaTree objects with the same leaves.
     #[test]
     fn test_patricia() {
-        let root = calculate_root(vec![
+        let root = calculate_root([
             FieldElement::ONE,
             FieldElement::TWO,
             FieldElement::THREE,
@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_edge_patricia() {
-        let root = calculate_root(vec![FieldElement::ONE]);
+        let root = calculate_root([FieldElement::ONE]);
         let expected_root = FieldElement::from_hex_be(
             "0x268a9d47dde48af4b6e2c33932ed1c13adec25555abaa837c376af4ea2f8ad4",
         )
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_binary_patricia() {
-        let root = calculate_root(vec![FieldElement::ONE, FieldElement::TWO]);
+        let root = calculate_root([FieldElement::ONE, FieldElement::TWO]);
         let expected_root = FieldElement::from_hex_be(
             "0x599927f1181d5633c6f680dbf039534de49c44e0b9903c5305b2582dfd6a56a",
         )

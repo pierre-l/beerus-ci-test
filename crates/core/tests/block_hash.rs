@@ -1,7 +1,7 @@
 use beerus_core::{block_hash::compute_block_hash, l2_client::L2ClientExt};
 use starknet::{
-    core::types::{BlockId, BlockTag, MaybePendingBlockWithTxs},
-    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
+    core::types::{BlockId, BlockTag},
+    providers::{jsonrpc::HttpTransport, JsonRpcClient},
 };
 use url::Url;
 
@@ -14,14 +14,8 @@ async fn verify_latest_block_hash() {
     };
 
     let block_id = BlockId::Tag(BlockTag::Latest);
-    let block = rpc_client.get_block_with_txs(block_id).await.unwrap();
-
-    let block = match block {
-        MaybePendingBlockWithTxs::Block(block) => block,
-        _ => panic!("unexpected block response type"),
-    };
-
-    let events = rpc_client.get_block_events(block_id).await;
+    let block = rpc_client.get_confirmed_block_with_txs(block_id).await.unwrap();
+    let events = rpc_client.get_block_events(block_id).await.unwrap();
 
     let expected = block.block_hash;
     assert_eq!(compute_block_hash(&block, &events), expected);

@@ -356,22 +356,20 @@ async fn sync(
         let id = BlockId::Number(candidate_number);
 
         let block = l2_client.get_confirmed_block_with_txs(id).await?;
+        let events = l2_client.get_block_events(id).await?;
 
         // TODO 550 Check the parent hash too.
-
-        let events = l2_client.get_block_events(id).await;
 
         let hash = compute_block_hash(&block, &events);
 
         if hash != block.block_hash {
             return Err(eyre!(
-                "Sync from proven root failed: invalid block hash at height {}",
+                "Sync from proven root failed: inconsistent block hash at height {}",
                 candidate_number
             ));
         }
 
         synced_block = candidate_number;
-        // TODO 550
         info!("Caught up with new L2 block: {}", synced_block);
 
         // TODO 550 Update the local state
