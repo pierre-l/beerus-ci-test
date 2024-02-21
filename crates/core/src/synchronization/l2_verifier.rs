@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use starknet::{core::types::{BlockId, BlockTag}, providers::{jsonrpc::HttpTransport, JsonRpcClient}};
-use tokio::sync::mpsc::{self, Receiver, Sender};
-use eyre::{eyre, Result};
-use tracing::error;
 use crate::block_hash::compute_block_hash;
 use crate::l2_client::L2ClientExt;
+use eyre::{eyre, Result};
+use starknet::{
+    core::types::{BlockId, BlockTag},
+    providers::{jsonrpc::HttpTransport, JsonRpcClient},
+};
+use tokio::sync::mpsc::{self, Receiver, Sender};
+use tracing::error;
 
 use super::{L1Update, LocalSyncState, UpdateType, CHANNEL_SIZE};
 
@@ -33,11 +36,13 @@ impl L2Verifier {
         l2_client: Arc<JsonRpcClient<HttpTransport>>,
     ) -> Result<()> {
         while let Some(l1_update) = l1_source.recv().await {
-            state_tx.send(LocalSyncState {
-                block_number: l1_update.block_number,
-                state_root: l1_update.state_root,
-                type_: UpdateType::L1Synchronized,
-            }).await?;
+            state_tx
+                .send(LocalSyncState {
+                    block_number: l1_update.block_number,
+                    state_root: l1_update.state_root,
+                    type_: UpdateType::L1Synchronized,
+                })
+                .await?;
 
             let l2_latest_block = l2_client
                 .get_confirmed_block_with_tx_hashes(BlockId::Tag(
@@ -45,10 +50,15 @@ impl L2Verifier {
                 ))
                 .await?;
 
-
             // TODO 550 Might be lagging behind here.
             // TODO 550 We might hash some blocks twice. LRU cache?
-            Self::catch_up(&state_tx, &l2_client, l1_update.block_number, l2_latest_block.block_number).await?;
+            Self::catch_up(
+                &state_tx,
+                &l2_client,
+                l1_update.block_number,
+                l2_latest_block.block_number,
+            )
+            .await?;
         }
 
         Ok(())
@@ -65,28 +75,30 @@ impl L2Verifier {
         while synced_block <= to {
             let candidate_number = synced_block + 1;
             let id = BlockId::Number(candidate_number);
-    
+
             let block = l2_client.get_confirmed_block_with_txs(id).await?;
             let events = l2_client.get_block_events(id).await?;
-    
+
             // TODO 550 Check the parent hash too.
-    
+
             let hash = compute_block_hash(&block, &events);
-    
+
             if hash != block.block_hash {
                 return Err(eyre!(
                     "Sync from proven root failed: inconsistent block hash at height {}",
                     candidate_number
                 ));
             }
-    
+
             synced_block = candidate_number;
 
-            state_tx.send(LocalSyncState {
-                block_number: block.block_number,
-                state_root: block.block_hash,
-                type_: UpdateType::L2Verified,
-            }).await?;
+            state_tx
+                .send(LocalSyncState {
+                    block_number: block.block_number,
+                    state_root: block.block_hash,
+                    type_: UpdateType::L2Verified,
+                })
+                .await?;
         }
 
         Ok(())

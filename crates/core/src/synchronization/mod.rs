@@ -19,7 +19,8 @@ pub async fn synchronise(
     core_contract_addr: H160,
     poll_interval: Duration,
 ) -> Receiver<LocalSyncState> {
-    let l1_updates = L1Source::spawn(l1_client, core_contract_addr, poll_interval);
+    let l1_updates =
+        L1Source::spawn(l1_client, core_contract_addr, poll_interval);
     L2Verifier::spawn(l1_updates, l2_client).await
 }
 
@@ -33,7 +34,7 @@ pub enum UpdateType {
     /// Accepted on L1
     L1Synchronized,
     /// Verified from the last L1 update
-    L2Verified
+    L2Verified,
 }
 
 struct L1Update {

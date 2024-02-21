@@ -13,9 +13,7 @@ use helios::prelude::Database;
 use helios::prelude::FileDB;
 use helios::types::BlockTag;
 use serde_json::json;
-use starknet::core::types::{
-    BlockId, FieldElement,
-};
+use starknet::core::types::{BlockId, FieldElement};
 use starknet::providers::jsonrpc::{HttpTransport, JsonRpcClient};
 use tokio::sync::RwLock;
 #[cfg(not(target_arch = "wasm32"))]
@@ -200,22 +198,28 @@ impl BeerusClient {
 
         let state_loop = async move {
             loop {
-                let mut updates = synchronise(l1_client.clone(), l2_client.clone(), core_contract_addr, poll_interval).await;
+                let mut updates = synchronise(
+                    l1_client.clone(),
+                    l2_client.clone(),
+                    core_contract_addr,
+                    poll_interval,
+                )
+                .await;
                 while let Some(update) = updates.recv().await {
-    
                     match update.type_ {
                         UpdateType::L1Synchronized => {
                             let mut guard = node.write().await;
-                            guard.update(update.block_number, update.state_root);
-                            
+                            guard
+                                .update(update.block_number, update.state_root);
+
                             info!("synced block: {}", update.block_number);
-                        },
+                        }
                         UpdateType::L2Verified => {
                             // TODO 550
                             info!("verified block: {}", update.block_number);
                         }
                     };
-                };
+                }
 
                 debug!("Sync loop stopped. Restarting");
             }

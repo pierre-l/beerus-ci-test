@@ -56,9 +56,9 @@ pub fn compute_block_hash(
 fn calculate_transaction_commitment(
     transactions: &[Transaction],
 ) -> FieldElement {
-    calculate_root(transactions
-        .iter()
-        .map(calculate_transaction_hash_with_signature))
+    calculate_root(
+        transactions.iter().map(calculate_transaction_hash_with_signature),
+    )
 }
 
 fn calculate_transaction_hash_with_signature(tx: &Transaction) -> FieldElement {

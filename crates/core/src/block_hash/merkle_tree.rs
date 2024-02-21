@@ -52,7 +52,9 @@ enum SubTreeSplitting {
 
 /// Calculates Patricia hash root on the given values.
 /// The values are keyed by consecutive numbers, starting from 0.
-pub fn calculate_root(values: impl IntoIterator<Item=FieldElement>) -> FieldElement {
+pub fn calculate_root(
+    values: impl IntoIterator<Item = FieldElement>,
+) -> FieldElement {
     let mut values = values.into_iter().peekable();
     if values.peek().is_none() {
         return FieldElement::ZERO;

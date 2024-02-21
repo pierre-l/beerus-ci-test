@@ -14,7 +14,8 @@ async fn verify_latest_block_hash() {
     };
 
     let block_id = BlockId::Tag(BlockTag::Latest);
-    let block = rpc_client.get_confirmed_block_with_txs(block_id).await.unwrap();
+    let block =
+        rpc_client.get_confirmed_block_with_txs(block_id).await.unwrap();
     let events = rpc_client.get_block_events(block_id).await.unwrap();
 
     let expected = block.block_hash;
