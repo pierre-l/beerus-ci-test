@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::{thread, time};
 
-use ethabi::ethereum_types::H160;
 use ethabi::Uint as U256;
 use ethers::prelude::{abigen, EthCall};
 use ethers::types::{Address, SyncingStatus};
@@ -15,19 +14,18 @@ use helios::prelude::FileDB;
 use helios::types::BlockTag;
 use serde_json::json;
 use starknet::core::types::{
-    BlockId, BlockTag as StarknetBlockTag, FieldElement,
+    BlockId, FieldElement,
 };
 use starknet::providers::jsonrpc::{HttpTransport, JsonRpcClient};
 use tokio::sync::RwLock;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
-use crate::block_hash::compute_block_hash;
 use crate::config::Config;
-use crate::l2_client::L2ClientExt;
 use crate::storage_proofs::types::StorageProofResponse;
 use crate::storage_proofs::StorageProof;
+use crate::synchronization::{synchronise, UpdateType};
 use crate::utils::*;
 use crate::CoreError;
 
@@ -49,6 +47,7 @@ abigen!(
 pub struct NodeData {
     pub l1_state_root: FieldElement,
     pub l1_block_number: u64,
+    pub verified_block: VerifiedBlock,
     pub sync_root: FieldElement,
     pub sync_block_number: u64,
 }
@@ -58,6 +57,7 @@ impl NodeData {
         NodeData {
             l1_state_root: FieldElement::ZERO,
             l1_block_number: 0,
+            verified_block: VerifiedBlock::LocallyVerified(0),
             sync_root: FieldElement::ZERO,
             sync_block_number: 0,
         }
@@ -77,6 +77,12 @@ impl Default for NodeData {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum VerifiedBlock {
+    L1Verified(u64),
+    LocallyVerified(u64),
 }
 
 pub struct BeerusClient {
@@ -187,29 +193,31 @@ impl BeerusClient {
     /// ```
     pub async fn start(&mut self) -> Result<()> {
         let l1_client = self.helios_client.clone();
-        let l2_client = self.config.to_starknet_client();
+        let l2_client = Arc::new(self.config.to_starknet_client());
         let core_contract_addr = self.config.get_core_contract_address();
         let node = self.node.clone();
         let poll_interval = time::Duration::from_secs(self.config.poll_secs);
 
         let state_loop = async move {
             loop {
-                match sync(
-                    &l1_client,
-                    &l2_client,
-                    core_contract_addr,
-                    node.clone(),
-                )
-                .await
-                {
-                    Ok(Some(block_number)) => {
-                        info!("synced block: {block_number}")
-                    }
-                    Ok(None) => debug!("already at head block"),
-                    Err(e) => error!("failed to pull block: {e}"),
+                let mut updates = synchronise(l1_client.clone(), l2_client.clone(), core_contract_addr, poll_interval).await;
+                while let Some(update) = updates.recv().await {
+    
+                    match update.type_ {
+                        UpdateType::L1Synchronized => {
+                            let mut guard = node.write().await;
+                            guard.update(update.block_number, update.state_root);
+                            
+                            info!("synced block: {}", update.block_number);
+                        },
+                        UpdateType::L2Verified => {
+                            // TODO 550
+                            info!("verified block: {}", update.block_number);
+                        }
+                    };
                 };
-                debug!("state loop: delay {poll_interval:?}");
-                thread::sleep(poll_interval);
+
+                debug!("Sync loop stopped. Restarting");
             }
         };
 
@@ -328,65 +336,7 @@ impl BeerusClient {
     }
 }
 
-async fn sync(
-    l1_client: &Client<impl Database>,
-    l2_client: &JsonRpcClient<HttpTransport>,
-    core_contract_addr: H160,
-    node: Arc<RwLock<NodeData>>,
-) -> Result<Option<u64>> {
-    let starknet_state_root =
-        get_starknet_state_root(l1_client, core_contract_addr).await?;
-    let l1_starknet_block_number =
-        get_starknet_state_block_number(l1_client, core_contract_addr).await?;
-    let local_block_number = node.read().await.l1_block_number;
-
-    info!("starknet block number: {l1_starknet_block_number}, local block number: {local_block_number}");
-
-    // The local state is out of date, retrieve the latest block from L2.
-    let l2_latest_block = l2_client
-        .get_confirmed_block_with_tx_hashes(BlockId::Tag(
-            StarknetBlockTag::Latest,
-        ))
-        .await?;
-
-    let mut synced_block = l1_starknet_block_number;
-    // Hash the block one by one.
-    while synced_block <= l2_latest_block.block_number {
-        let candidate_number = synced_block + 1;
-        let id = BlockId::Number(candidate_number);
-
-        let block = l2_client.get_confirmed_block_with_txs(id).await?;
-        let events = l2_client.get_block_events(id).await?;
-
-        // TODO 550 Check the parent hash too.
-
-        let hash = compute_block_hash(&block, &events);
-
-        if hash != block.block_hash {
-            return Err(eyre!(
-                "Sync from proven root failed: inconsistent block hash at height {}",
-                candidate_number
-            ));
-        }
-
-        synced_block = candidate_number;
-        info!("Caught up with new L2 block: {}", synced_block);
-
-        // TODO 550 Update the local state
-    }
-
-    let blocks_behind = l2_latest_block.block_number - l1_starknet_block_number;
-    info!(
-        "L1 block: {}, L2 block: {} (L1 is {} blocks behind)",
-        l1_starknet_block_number, l2_latest_block.block_number, blocks_behind
-    );
-
-    let mut guard = node.write().await;
-    guard.update(l1_starknet_block_number, starknet_state_root);
-    Ok(Some(l2_latest_block.block_number))
-}
-
-async fn get_starknet_state_root(
+pub async fn get_starknet_state_root(
     l1_client: &Client<impl Database>,
     contract_addr: Address,
 ) -> Result<FieldElement> {
@@ -400,7 +350,7 @@ async fn get_starknet_state_root(
     FieldElement::from_byte_slice_be(&state_root).map_err(|e| eyre!(e))
 }
 
-async fn get_starknet_state_block_number(
+pub async fn get_starknet_state_block_number(
     l1_client: &Client<impl Database>,
     core_contract_addr: Address,
 ) -> Result<u64, CoreError> {

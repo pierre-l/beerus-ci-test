@@ -16,6 +16,7 @@ bitvec = "1.0.1"
 ethabi = "18.0.0"
 ethers = "2.0.11"
 eyre.workspace = true
+futures = "0.3.30"
 helios = { git = "https://github.com/a16z/helios", rev = "4ca6146eff964326240f2ef77215413b490d8301" }
 lazy_static = "1.4.0"
 reqwest = "0.11.13"

@@ -407,6 +407,7 @@ dependencies = [
  "ethabi",
  "ethers",
  "eyre",
+ "futures",
  "gloo-timers",
  "helios",
  "lazy_static",

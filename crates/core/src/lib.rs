@@ -3,6 +3,7 @@ pub mod client;
 pub mod config;
 pub mod l2_client;
 pub mod storage_proofs;
+mod synchronization;
 pub mod utils;
 
 use eyre::Report;

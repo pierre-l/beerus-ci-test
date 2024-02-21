@@ -121,17 +121,9 @@ fn calculate_event_commitment(events: &[Event]) -> FieldElement {
 /// for details.
 fn calculate_event_hash(event: &Event) -> FieldElement {
     let mut keys_hash = HashChain::default();
-
-    // TODO 550 Make sure this is necessary, or get rid of this.
-    if event.keys.len() == 1 && event.keys[0] == FieldElement::from_bytes_be(&[0u8; 32]).unwrap(){
-        // Pathfinder may return a zeroed key in the case of an empty array.
-        // This breaks block hashes. Skip it.
-    } else {
-        for key in event.keys.iter() {
-            keys_hash.update(*key);
-        }
+    for key in event.keys.iter() {
+        keys_hash.update(*key);
     }
-    
     let keys_hash = keys_hash.finalize();
 
     let mut data_hash = HashChain::default();
