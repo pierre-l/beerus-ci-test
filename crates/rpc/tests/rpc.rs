@@ -8,7 +8,7 @@
 use reqwest::Url;
 use starknet::{
     core::types::{
-        BlockHashAndNumber, BlockId, BlockTag, BlockWithTxHashes, BlockWithTxs, BroadcastedInvokeTransactionV3, BroadcastedTransaction, DataAvailabilityMode, DeclareTransaction, DeployAccountTransaction, Event, EventFilter, FieldElement, FunctionCall, InvokeTransaction, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, MaybePendingTransactionReceipt, ResourceBounds, ResourceBoundsMapping, SimulationFlagForEstimateFee, Transaction, TransactionExecutionStatus, TransactionReceipt
+        BlockHashAndNumber, BlockId, BlockTag, BlockWithTxHashes, BlockWithTxs, BroadcastedInvokeTransactionV3, BroadcastedTransaction, DeclareTransaction, DeployAccountTransaction, Event, EventFilter, FieldElement, FunctionCall, InvokeTransaction, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, MaybePendingTransactionReceipt, ResourceBounds, ResourceBoundsMapping, SimulationFlagForEstimateFee, Transaction, TransactionExecutionStatus, TransactionReceipt
     },
     providers::{
         jsonrpc::HttpTransport, JsonRpcClient, Provider, ProviderError,
