@@ -1,7 +1,7 @@
 name: new-ci-test
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/20 * * * *"
   push:
     branches: [chain_agnostic_tests]
   workflow_dispatch:
