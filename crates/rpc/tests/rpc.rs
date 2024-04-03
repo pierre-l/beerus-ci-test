@@ -1,3 +1,4 @@
+#![cfg(feature = "integration-tests")]
 /*
    TODO As expected, these states aren't as reliable as I hoped because to state changes.
    I see two possible ways to tackle this:
@@ -8,7 +9,13 @@
 use reqwest::Url;
 use starknet::{
     core::types::{
-        BlockHashAndNumber, BlockId, BlockTag, BlockWithTxHashes, BlockWithTxs, BroadcastedInvokeTransactionV3, BroadcastedTransaction, DeclareTransaction, DeployAccountTransaction, Event, EventFilter, FieldElement, FunctionCall, InvokeTransaction, MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs, MaybePendingTransactionReceipt, ResourceBounds, ResourceBoundsMapping, SimulationFlagForEstimateFee, Transaction, TransactionExecutionStatus, TransactionReceipt
+        BlockHashAndNumber, BlockId, BlockTag, BlockWithTxHashes, BlockWithTxs,
+        BroadcastedInvokeTransactionV3, BroadcastedTransaction,
+        DeclareTransaction, DeployAccountTransaction, Event, EventFilter,
+        FieldElement, FunctionCall, InvokeTransaction,
+        MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs,
+        MaybePendingTransactionReceipt, SimulationFlagForEstimateFee,
+        Transaction, TransactionExecutionStatus, TransactionReceipt,
     },
     providers::{
         jsonrpc::HttpTransport, JsonRpcClient, Provider, ProviderError,
@@ -152,6 +159,8 @@ impl L2ClientExt for JsonRpcClient<HttpTransport> {
     }
 }
 
+// TODO
+#[ignore = "draft"]
 #[tokio::test]
 async fn test_block_hash_and_number() {
     let TestContext { client, block, block_id: _, extracted_value: () } =
@@ -184,12 +193,11 @@ async fn test_chain_id() {
         latest_block_context().await;
 
     // TODO Assertion?
-    client
-        .chain_id()
-        .await
-        .expect("Failed to retrieve the chain ID");
+    client.chain_id().await.expect("Failed to retrieve the chain ID");
 }
 
+// TODO
+#[ignore = "draft"]
 #[tokio::test]
 async fn test_estimate_fee() {
     let TestContext { client, block: _, block_id, extracted_value } =
@@ -210,7 +218,15 @@ async fn test_estimate_fee() {
 
     // TODO Criterion
     // TODO unwrap.
-    assert_eq!(client.get_transaction_receipt(invoke.transaction_hash).await.unwrap().execution_result().status(), TransactionExecutionStatus::Succeeded);
+    assert_eq!(
+        client
+            .get_transaction_receipt(invoke.transaction_hash)
+            .await
+            .unwrap()
+            .execution_result()
+            .status(),
+        TransactionExecutionStatus::Succeeded
+    );
 
     let incremented_nonce = {
         // TODO Ugly conversion
@@ -277,18 +293,18 @@ fn test_estimate_fee_single() {}
 #[tokio::test]
 async fn test_call() {
     let TestContext { client, block: _, block_id, extracted_value } =
-    context(|block| {
-        block.transactions.iter().find_map(|transaction| {
-            match transaction {
-                Transaction::DeployAccount(DeployAccountTransaction::V3(deploy)) => {
-                    Some(deploy.clone())
+        context(|block| {
+            block.transactions.iter().find_map(|transaction| {
+                match transaction {
+                    Transaction::DeployAccount(
+                        DeployAccountTransaction::V3(deploy),
+                    ) => Some(deploy.clone()),
+                    // TODO Make the match exhaustive to make dep upgrades more reliable.
+                    _ => None,
                 }
-                // TODO Make the match exhaustive to make dep upgrades more reliable.
-                _ => None,
-            }
+            })
         })
-    })
-    .await;
+        .await;
     let deploy = extracted_value;
 
     let class = client
@@ -303,27 +319,30 @@ async fn test_call() {
     };
 
     let address = {
-        let receipt = client.get_transaction_receipt(deploy.transaction_hash).await.expect("an existing receipt");
-        
+        let receipt = client
+            .get_transaction_receipt(deploy.transaction_hash)
+            .await
+            .expect("an existing receipt");
+
         // TODO Check the execution & finality status?
         match receipt {
-            MaybePendingTransactionReceipt::Receipt(TransactionReceipt::DeployAccount(receipt)) => {
-                receipt.contract_address
-            },
+            MaybePendingTransactionReceipt::Receipt(
+                TransactionReceipt::DeployAccount(receipt),
+            ) => receipt.contract_address,
             // TODO
             _ => panic!(),
         }
     };
 
     let entrypoint = sierra.entry_points_by_type.external.first().unwrap();
-    
+
     // TODO Remove
     println!("{}", sierra.abi);
     // let abi: Vec<AbiEntry> = serde_json::from_str(&sierra.abi).unwrap();
 
     /* TODO
         The problem here is that we need to find a function we can call and valid parameters for that function.
-        We could rely on the Argent & Braavos account contracts, maybe call `getBalance`. I just don't know how 
+        We could rely on the Argent & Braavos account contracts, maybe call `getBalance`. I just don't know how
         to do that yet :)
     */
     client
@@ -425,9 +444,9 @@ async fn test_get_class_at() {
         context(|block| {
             block.transactions.iter().find_map(|transaction| {
                 match transaction {
-                    Transaction::DeployAccount(DeployAccountTransaction::V3(deploy)) => {
-                        Some(deploy.transaction_hash)
-                    }
+                    Transaction::DeployAccount(
+                        DeployAccountTransaction::V3(deploy),
+                    ) => Some(deploy.transaction_hash),
                     // TODO Make the match exhaustive to make dep upgrades more reliable.
                     _ => None,
                 }
@@ -436,13 +455,22 @@ async fn test_get_class_at() {
         .await;
     let deploy_tx_hash = extracted_value;
 
-    let receipt = match client.get_transaction_receipt(deploy_tx_hash).await.expect("the transaction to have a matching receipt") {
-        MaybePendingTransactionReceipt::Receipt(TransactionReceipt::DeployAccount(receipt)) => receipt,
+    let receipt = match client
+        .get_transaction_receipt(deploy_tx_hash)
+        .await
+        .expect("the transaction to have a matching receipt")
+    {
+        MaybePendingTransactionReceipt::Receipt(
+            TransactionReceipt::DeployAccount(receipt),
+        ) => receipt,
         // TODO
-        _ => panic!()
+        _ => panic!(),
     };
 
-    client.get_class_at(block_id, receipt.contract_address).await.expect("getClass failed");
+    client
+        .get_class_at(block_id, receipt.contract_address)
+        .await
+        .expect("getClass failed");
 }
 
 #[tokio::test]
@@ -451,9 +479,9 @@ async fn test_get_class_hash_at() {
         context(|block| {
             block.transactions.iter().find_map(|transaction| {
                 match transaction {
-                    Transaction::DeployAccount(DeployAccountTransaction::V3(deploy)) => {
-                        Some(deploy.transaction_hash)
-                    }
+                    Transaction::DeployAccount(
+                        DeployAccountTransaction::V3(deploy),
+                    ) => Some(deploy.transaction_hash),
                     // TODO Make the match exhaustive to make dep upgrades more reliable.
                     _ => None,
                 }
@@ -462,13 +490,22 @@ async fn test_get_class_hash_at() {
         .await;
     let deploy_tx_hash = extracted_value;
 
-    let receipt = match client.get_transaction_receipt(deploy_tx_hash).await.expect("the transaction to have a matching receipt") {
-        MaybePendingTransactionReceipt::Receipt(TransactionReceipt::DeployAccount(receipt)) => receipt,
+    let receipt = match client
+        .get_transaction_receipt(deploy_tx_hash)
+        .await
+        .expect("the transaction to have a matching receipt")
+    {
+        MaybePendingTransactionReceipt::Receipt(
+            TransactionReceipt::DeployAccount(receipt),
+        ) => receipt,
         // TODO
-        _ => panic!()
+        _ => panic!(),
     };
 
-    client.get_class_hash_at(block_id, receipt.contract_address).await.expect("getClass failed");
+    client
+        .get_class_hash_at(block_id, receipt.contract_address)
+        .await
+        .expect("getClass failed");
 }
 
 #[ignore = "tested with test_get_transaction_receipt"]
@@ -518,9 +555,9 @@ async fn test_get_storage_at() {
             // Browse the transaction in reverse order to make sure we got the latest nonce.
             block.transactions.iter().rev().find_map(|transaction| {
                 match transaction {
-                    Transaction::DeployAccount(DeployAccountTransaction::V3(deploy)) => {
-                        Some(deploy.clone())
-                    }
+                    Transaction::DeployAccount(
+                        DeployAccountTransaction::V3(deploy),
+                    ) => Some(deploy.clone()),
                     // TODO Make the match exhaustive to make dep upgrades more reliable.
                     _ => None,
                 }
@@ -528,16 +565,28 @@ async fn test_get_storage_at() {
         })
         .await;
     let deploy = extracted_value;
-    
-    let receipt = client.get_transaction_receipt(deploy.transaction_hash).await.expect("get_transaction_receipt failed");
+
+    let receipt = client
+        .get_transaction_receipt(deploy.transaction_hash)
+        .await
+        .expect("get_transaction_receipt failed");
 
     let deploy_receipt = match receipt {
-        MaybePendingTransactionReceipt::Receipt(TransactionReceipt::DeployAccount(deploy_receipt)) => deploy_receipt,
+        MaybePendingTransactionReceipt::Receipt(
+            TransactionReceipt::DeployAccount(deploy_receipt),
+        ) => deploy_receipt,
         receipt => panic!("Unexpected receipt type: {:?}", receipt),
     };
 
     // TODO Event array size assertions
-    client.get_storage_at(deploy_receipt.contract_address, deploy_receipt.events[0].keys[0], block_id).await.expect("getStorageAt failed");
+    client
+        .get_storage_at(
+            deploy_receipt.contract_address,
+            deploy_receipt.events[0].keys[0],
+            block_id,
+        )
+        .await
+        .expect("getStorageAt failed");
 }
 
 #[tokio::test]
@@ -605,6 +654,8 @@ async fn test_get_transaction_by_hash() {
     .await;
 }
 
+// TODO
+#[ignore = "draft"]
 #[tokio::test]
 async fn test_get_transaction_receipt() {
     let TestContext { client, block, block_id: _, extracted_value: () } =
@@ -625,7 +676,7 @@ async fn test_get_transaction_receipt() {
             }
         };
 
-        // TODO Check the execution & finality status. If the tx was reverted, no event was emitted and 
+        // TODO Check the execution & finality status. If the tx was reverted, no event was emitted and
         // we can't go any further with the assertions.
 
         let events = match receipt {
