@@ -21,20 +21,21 @@
 
 ## Getting Started
 
+### Running Beerus for the first time
+
+Copy the configuration file from `etc/conf/beerus.toml` and set up the RPC provider URLs in the copy.
+Make sure that providers are compatible. Read more about providers [here](#rpc-providers)
+
+Then run:
+```bash
+cargo run --release -- -c ./path/to/config.toml
+```
+
+Once Beerus has started to verify that everything is working correctly, run this command:
+```
+hurl etc/rpc/starknet_getStateRoot.hurl
+```
 ### Configuration
-
-Beerus relies on TWO untrusted RPC endpoints, one for L1 (Ethereum), and one for L2 (Starknet). 
-As these are untrusted they will typically not be nodes run on your local host or your local network.
-
-Beerus requires the [v0.6.0 of the Starknet OpenRPC specs](https://github.com/starkware-libs/starknet-specs/tree/v0.6.0).
-
-These untrusted RPC providers must adhere to both the L1 `eth_getProof` endpoint
-as well as the L2 `pathfinder_getProof` endpoint ([detailed instructions needed!](https://github.com/eigerco/beerus/issues/602)).For this we recommend using
-[Alchemy](https://docs.alchemy.com/reference/starknet-api-faq#what-versions-of-starknet-api-are-supported) as your untrusted L2 node provider. 
-
-More API providers can be found [here](https://docs.starknet.io/documentation/tools/api-services/).
-
-*NOTE: we rely on [helios](https://github.com/a16z/helios) for both valid checkpoint values and consensus rpc urls*
 
 | field   | example | description |
 | ----------- | ----------- | ----------- |
@@ -59,17 +60,103 @@ eth_execution_rpc = "https://eth-sepolia.g.alchemy.com/v2/{YOUR_API_KEY}"
 starknet_rpc = "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0.6/{YOUR_API_KEY}"
 ```
 
-### Running Beerus for the first time
+#### RPC providers
+Beerus relies on TWO untrusted RPC endpoints, one for L1 (Ethereum), and one for L2 (Starknet).
+As these are untrusted they will typically not be nodes run on your local host or your local network.
 
-Copy the configuration file from `etc/conf/beerus.toml` and set up the API provider URLs in the copy.
+##### Etherum RPC endpoint
 
-Then run:
+Etherum RPC provider must support the `eth_getProof` endpoint.
+
+You can check if the provider is compatible by running this command:
 ```bash
-cargo run --release -- -c ./path/to/config.toml
-
-# Once Beerus has started, 
-hurl etc/rpc/starknet_getStateRoot.hurl
+# This is an example RPC url. Use your RPC provider url to check if the node is compatible.
+ETHERUM_RPC_URL="https://eth-sepolia.g.alchemy.com/v2/{YOUR_API_KEY}"
+curl --request POST \
+     --url $ETHERUM_RPC_URL \
+     --header 'content-type: application/json' \
+     --data '
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "eth_getProof",
+  "params": [
+    "0x7F0d15C7FAae65896648C8273B6d7E43f58Fa842",
+    [
+        "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    ],
+    "latest"
+  ]
+}
+'
 ```
+
+If you get a response similar to the one below, then the provider is **not compatible**.
+```
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32600,
+    "message": "method 'Unsupported method: eth_getProof'"
+  }
+}
+```
+
+
+
+*NOTE: we rely on [helios](https://github.com/a16z/helios) for both valid checkpoint values and consensus rpc urls*
+
+##### Starknet RPC endpoint
+
+Beerus requires the [v0.6.0 of the Starknet OpenRPC specs](https://github.com/starkware-libs/starknet-specs/tree/v0.6.0).
+
+Starknet RPC provider must also support the [Pathfinder's extension API](https://github.com/eqlabs/pathfinder#pathfinder-extension-api) `pathfinder_getProof` endpoint. 
+
+You can check if the provider is compatible by running this command:
+```bash
+# This is an example RPC url. Use your RPC provider url to check if the node is compatible.
+STARKNET_RPC_URL="https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0.6/{YOUR_API_KEY}"
+curl --request POST \
+     --url $STARKNET_RPC_URL \
+     --header 'content-type: application/json' \
+     --data '
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "method": "pathfinder_getProof",
+  "params": [
+    {
+      "block_number": 56072
+    },
+    "0x07cb0dca5767f238b056665d2f8350e83a2dee7eac8ec65e66bbc790a4fece8a",
+    [
+        "0x01d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+    ]
+  ]
+}
+'
+```
+
+If you get a response similar to the one below, then the provider is **not compatible**.
+```
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32601,
+    "message": "method 'pathfinder_getProof' not found"
+  }
+}
+```
+
+We recommend using one of these providers:
+- [Alchemy](https://docs.alchemy.com/reference/starknet-api-faq#what-versions-of-starknet-api-are-supported)
+- [Chainstack](https://docs.chainstack.com/docs/starknet-tooling)
+- [Reddio](https://docs.reddio.com/guide/node/starknet.html#grab-starknet-sepolia-endpoint)
+
+
+More API providers can be found [here](https://docs.starknet.io/documentation/tools/api-services/).
 
 ## Development
 
