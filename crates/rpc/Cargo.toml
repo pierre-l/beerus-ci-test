@@ -5,10 +5,11 @@ name = "beerus-rpc"
 version = "0.4.0"
 
 [features]
-integration-tests = ["pretty_assertions"]
+integration-tests = ["pretty_assertions", "cached"]
 
 [dependencies]
 beerus-core = { path = "../core" }
+cached = { version = "0.49.3", optional = true }
 starknet.workspace = true
 eyre.workspace = true
 jsonrpsee = { version = "0.20.3", features = ["macros", "server", "server-core"] }

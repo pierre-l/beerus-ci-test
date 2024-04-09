@@ -2,15 +2,21 @@
 #![cfg(feature = "integration-tests")]
 
 use beerus_core::config::DEFAULT_PORT;
+use cached::Cached;
+use std::ops::Deref;
+
+use cached::SizedCache;
 use reqwest::Url;
 use starknet::{
     core::types::{
-        BlockId, BlockTag, BlockWithTxHashes, BlockWithTxs, DeclareTransaction,
+        BlockId, BlockWithTxHashes, BlockWithTxs, DeclareTransaction,
         DeployAccountTransaction, FieldElement, InvokeTransaction,
         MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs,
         MaybePendingTransactionReceipt, Transaction, TransactionReceipt,
     },
-    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider},
+    providers::{
+        jsonrpc::HttpTransport, JsonRpcClient, Provider, ProviderError,
+    },
 };
 
 fn rpc_client() -> JsonRpcClient<HttpTransport> {
@@ -20,8 +26,38 @@ fn rpc_client() -> JsonRpcClient<HttpTransport> {
     JsonRpcClient::new(HttpTransport::new(rpc_url))
 }
 
+struct TestClient {
+    inner: JsonRpcClient<HttpTransport>,
+    block_cache: SizedCache<u64, MaybePendingBlockWithTxs>,
+}
+
+impl TestClient {
+    async fn get_cached_block_with_txs(
+        &mut self,
+        number: u64,
+    ) -> Result<MaybePendingBlockWithTxs, ProviderError> {
+        match self.block_cache.cache_get(&number) {
+            Some(block) => Ok(block.clone()),
+            None => {
+                let block =
+                    self.get_block_with_txs(BlockId::Number(number)).await?;
+                self.block_cache.cache_set(number, block.clone());
+                Ok(block)
+            }
+        }
+    }
+}
+
+impl Deref for TestClient {
+    type Target = JsonRpcClient<HttpTransport>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
 struct TestContext<T> {
-    client: JsonRpcClient<HttpTransport>,
+    client: TestClient,
     block: BlockWithTxs,
     block_id: BlockId,
     extracted_value: T,
@@ -54,10 +90,18 @@ async fn n_txs_context(min_tx_number: usize) -> TestContext<()> {
 async fn context<F: Fn(&BlockWithTxs) -> Option<T>, T>(
     extractor: F,
 ) -> TestContext<T> {
-    let client = rpc_client();
+    let mut client = TestClient {
+        inner: rpc_client(),
+        block_cache: SizedCache::with_size(1000),
+    };
+
+    let latest = client
+        .block_number()
+        .await
+        .expect("Failed to retrieve the latest block number");
 
     let block = match client
-        .get_block_with_txs(BlockId::Tag(BlockTag::Latest))
+        .get_cached_block_with_txs(latest)
         .await
         .expect("Failed to retrieve the latest block")
     {
@@ -91,7 +135,7 @@ async fn context<F: Fn(&BlockWithTxs) -> Option<T>, T>(
         }
 
         let block = match client
-            .get_block_with_txs(BlockId::Number(block_number))
+            .get_cached_block_with_txs(block_number)
             .await
             .expect("Block retrieval failed")
         {
