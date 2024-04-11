@@ -9,11 +9,11 @@ use cached::SizedCache;
 use reqwest::Url;
 use starknet::{
     core::types::{
-        BlockId, BlockWithTxHashes, BlockWithTxs, DeclareTransaction,
-        DeployAccountTransaction, FieldElement, InvokeTransaction,
-        MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs,
-        MaybePendingTransactionReceipt, Transaction, TransactionReceipt,
-        BlockHashAndNumber,
+        BlockHashAndNumber, BlockId, BlockWithTxHashes, BlockWithTxs,
+        DeclareTransaction, DeployAccountTransaction, FieldElement,
+        InvokeTransaction, MaybePendingBlockWithTxHashes,
+        MaybePendingBlockWithTxs, MaybePendingTransactionReceipt, Transaction,
+        TransactionReceipt,
     },
     providers::{
         jsonrpc::HttpTransport, JsonRpcClient, Provider, ProviderError,
@@ -166,15 +166,12 @@ async fn test_block_hash_and_number() {
     async fn run() -> Result<(), &'static str> {
         let TestContext { client, block, block_id: _, extracted_value: () } =
             latest_block_context().await;
-    
-        let BlockHashAndNumber {
-            block_hash,
-            block_number
-        } = client
+
+        let BlockHashAndNumber { block_hash, block_number } = client
             .block_hash_and_number()
             .await
             .expect("Failed to retrieve the block hash & number");
-    
+
         if block_hash != block.block_hash {
             return Err("Block hash mismatch");
         }
@@ -380,6 +377,9 @@ async fn test_get_nonce() {
 }
 
 #[tokio::test]
+async fn test_get_state_root() {}
+
+#[tokio::test]
 async fn test_get_transaction_by_block_id_and_index() {
     let txs = 10;
     let TestContext { client, block, block_id, extracted_value: () } =
@@ -485,7 +485,6 @@ async fn test_get_transaction_status() {
 /* TODO
    Add more test scenarios to cover the following methods:
 
-   starknet_block_hash_and_number
    starknet_call
    starknet_estimateFee
    starknet_estimateFeeSingle
