@@ -377,9 +377,6 @@ async fn test_get_nonce() {
 }
 
 #[tokio::test]
-async fn test_get_state_root() {}
-
-#[tokio::test]
 async fn test_get_transaction_by_block_id_and_index() {
     let txs = 10;
     let TestContext { client, block, block_id, extracted_value: () } =
@@ -488,16 +485,18 @@ async fn test_get_transaction_status() {
    starknet_call
    starknet_estimateFee
    starknet_estimateFeeSingle
-   starknet_getBalance
    starknet_getEvents
-   starknet_getProof
-   starknet_getStateRoot
    starknet_getStateUpdate
-   starknet_getStorateAt
+   starknet_getStorageAt
    starknet_getTransactionReceipt
-   starknet_getTransactionStatus
    starknet_syncing
    pathfinder_getProof
+
+   Extended endpoints (unsupported by starknet-rs' `JsonRpcClient`):
+
+   starknet_getStateRoot
+   starknet_getProof
+   starknet_getBalance
 */
 
 fn truncate_felt_to_u128(felt: &FieldElement) -> u128 {
