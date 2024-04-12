@@ -1,4 +1,4 @@
-name: rust-integration-tests-chainstack
+name: rust-integration-tests-reddio
 on:
   schedule:
     - cron: "*/15 * * * *"
