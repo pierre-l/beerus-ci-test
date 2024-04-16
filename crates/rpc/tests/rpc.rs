@@ -22,9 +22,7 @@ use starknet::{
 
 fn rpc_url() -> Url {
     let config = Config::from_env();
-    format!("http://{}", config.rpc_addr)
-        .parse()
-        .expect("Invalid RPC URL")
+    format!("http://{}", config.rpc_addr).parse().expect("Invalid RPC URL")
 }
 
 fn rpc_client() -> JsonRpcClient<HttpTransport> {
