@@ -23,9 +23,12 @@ jobs:
           NETWORK: "mainnet"
           ETH_EXECUTION_RPC: ${{ secrets.ETH_EXECUTION_RPC_MAINNET }}
           STARKNET_RPC: ${{ secrets.STARKNET_RPC_0_6_0_MAINNET }}
+          RPC_ADDR: 127.0.0.1:3031
         run: ./target/release/beerus & while ! timeout 1 bash -c "echo > /dev/tcp/localhost/3030" 2> /dev/null; do sleep 2; done
 
       - name: run integration test on MAINNET
+        env:
+          RPC_ADDR: 127.0.0.1:3031
         run: cargo test --package beerus-rpc --features integration-tests
 
       - name: stop RPC

@@ -1,7 +1,7 @@
 // These tests need Beerus to run in the background, hence why they're hidden behind the following feature.
 #![cfg(feature = "integration-tests")]
 
-use beerus_core::config::DEFAULT_PORT;
+use beerus_core::config::Config;
 use cached::Cached;
 use std::ops::Deref;
 
@@ -20,11 +20,15 @@ use starknet::{
     },
 };
 
-fn rpc_client() -> JsonRpcClient<HttpTransport> {
-    let rpc_url: Url = format!("http://localhost:{}", DEFAULT_PORT)
+fn rpc_url() -> Url {
+    let config = Config::from_env();
+    format!("http://{}", config.rpc_addr)
         .parse()
-        .expect("Invalid RPC URL");
-    JsonRpcClient::new(HttpTransport::new(rpc_url))
+        .expect("Invalid RPC URL")
+}
+
+fn rpc_client() -> JsonRpcClient<HttpTransport> {
+    JsonRpcClient::new(HttpTransport::new(rpc_url()))
 }
 
 struct TestClient {
