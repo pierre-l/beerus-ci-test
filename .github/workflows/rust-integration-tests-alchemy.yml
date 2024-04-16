@@ -1,4 +1,4 @@
-name: rust-integration-tests
+name: rust-integration-tests-alchemy
 on:
   schedule:
     - cron: "*/15 * * * *"
