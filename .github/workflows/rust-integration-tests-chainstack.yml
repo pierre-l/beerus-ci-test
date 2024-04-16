@@ -23,14 +23,14 @@ jobs:
           NETWORK: "mainnet"
           ETH_EXECUTION_RPC: ${{ secrets.ETH_EXECUTION_RPC_MAINNET }}
           STARKNET_RPC: ${{ secrets.STARKNET_RPC_0_6_0_MAINNET_CHAINSTACK }}
-          RPC_ADDR: 127.0.0.1:$IT_PORT_CHAINSTACK
-        run: ./target/release/beerus & while ! timeout 1 bash -c "echo > /dev/tcp/localhost/$IT_PORT_CHAINSTACK" 2> /dev/null; do sleep 2; done
+          RPC_ADDR: 127.0.0.1:${{ vars.IT_PORT_CHAINSTACK }}
+        run: ./target/release/beerus & while ! timeout 1 bash -c "echo > /dev/tcp/localhost/${{ vars.IT_PORT_CHAINSTACK }}" 2> /dev/null; do sleep 2; done
 
       - name: run integration test on MAINNET
         env:
-          RPC_ADDR: 127.0.0.1:$IT_PORT_CHAINSTACK
+          RPC_ADDR: 127.0.0.1:${{ vars.IT_PORT_CHAINSTACK }}
         run: cargo test --package beerus-rpc --features integration-tests
 
       - name: stop RPC
-        run: kill $(lsof -t -i:$IT_PORT_CHAINSTACK)
+        run: kill $(lsof -t -i:${{ vars.IT_PORT_CHAINSTACK }})
  
