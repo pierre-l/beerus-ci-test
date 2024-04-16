@@ -100,7 +100,11 @@ impl Config {
                 &std::env::var("POLL_SECS").unwrap_or_default(),
             )
             .unwrap_or(DEFAULT_POLL_SECS),
-            rpc_addr: rpc_addr(),
+            rpc_addr: std::env::var("RPC_ADDR")
+                .map(|addr| {
+                    SocketAddr::from_str(&addr).expect("a valid socket address")
+                })
+                .unwrap_or(rpc_addr()),
             fee_token_addr: fee_token_addr(),
         }
     }
