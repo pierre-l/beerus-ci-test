@@ -9,6 +9,11 @@ jobs:
   integration:
     runs-on: pierre-l
     timeout-minutes: 30
+    env:
+      CI_CONFIG_GILE: "ci_config.toml"
+      ETH_EXECUTION_RPC: ${{ secrets.ETH_EXECUTION_RPC_MAINNET }}
+      STARKNET_RPC: ${{ secrets.STARKNET_RPC_0_6_0_MAINNET_ALCHEMY }}
+      BEERUS_RPC_PORT: ${{ vars.IT_PORT_ALCHEMY }}
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -18,31 +23,26 @@ jobs:
         run: cargo build -p beerus-cli --release
 
       - name: start beerus RPC on MAINNET
-        env:
-          # TODO Needed?
-          BEERUS_VERSION: "ci"
         run: |
           # Write Beerus' config file
-          # TODO Try to make this variable more global so it can be used in the `stop RPC` step.
-          CONFIG_FILE=ci_config.toml
-          rm -f $CONFIG_FILE
+          rm -f $CI_CONFIG_FILE
           
-          cat > $CONFIG_FILE <<- EOF
+          cat > $CI_CONFIG_FILE <<- EOF
           network = "MAINNET"
-          eth_execution_rpc = "${{ secrets.ETH_EXECUTION_RPC_MAINNET }}"
-          starknet_rpc = "${{ secrets.STARKNET_RPC_0_6_0_MAINNET_ALCHEMY }}"
+          eth_execution_rpc = "${ETH_EXECUTION_RPC}"
+          starknet_rpc = "${STARKNET_RPC}"
           data_dir = "tmp"
           poll_secs = 5
-          rpc_addr = "127.0.0.1:${{ vars.IT_PORT_ALCHEMY }}"
+          rpc_addr = "127.0.0.1:${BEERUS_RPC_PORT}"
           EOF
 
-          ./target/release/beerus -c $CONFIG_FILE & for i in {1..30}; do timeout 1 bash -c "echo > /dev/tcp/localhost/${{ vars.IT_PORT_ALCHEMY }}" 2> /dev/null && break || sleep 1; done
+          ./target/release/beerus -c $CI_CONFIG_FILE & for i in {1..30}; do timeout 1 bash -c "echo > /dev/tcp/localhost/${BEERUS_RPC_PORT}" 2> /dev/null && break || sleep 1; done
 
       - name: run integration test on MAINNET
         env:
-          RPC_ADDR: 127.0.0.1:${{ vars.IT_PORT_ALCHEMY }}
+          RPC_ADDR: 127.0.0.1:${BEERUS_RPC_PORT}
         run: cargo test --package beerus-rpc --features integration-tests
 
       - name: stop RPC
-        run: kill $(lsof -t -i:${{ vars.IT_PORT_ALCHEMY }}) && rm -f ci_config.toml
+        run: kill $(lsof -t -i:${BEERUS_RPC_PORT}) && rm -f $CI_CONFIG_FILE
  
