@@ -24,6 +24,7 @@ jobs:
           ETH_EXECUTION_RPC: ${{ secrets.ETH_EXECUTION_RPC_MAINNET }}
           STARKNET_RPC: ${{ secrets.STARKNET_RPC_0_6_0_MAINNET_ALCHEMY }}
           RPC_ADDR: 127.0.0.1:${{ vars.IT_PORT_ALCHEMY }}
+        run: |
           # Write Beerus' config file
           # TODO Try to make this variable more global so it can be used in the `stop RPC` step.
           CONFIG_FILE=ci_config.toml
