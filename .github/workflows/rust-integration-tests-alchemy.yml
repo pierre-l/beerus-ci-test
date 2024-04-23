@@ -41,5 +41,5 @@ jobs:
         run: cargo test --package beerus-rpc --features integration-tests
 
       - name: stop RPC
-        run: kill $(lsof -t -i:${BEERUS_RPC_PORT}) && rm -f $CI_CONFIG_FILE
+        run: kill $(lsof -t -i:3030) && rm -f $CI_CONFIG_FILE
  
