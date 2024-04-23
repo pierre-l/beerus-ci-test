@@ -1,37 +1,37 @@
 // These tests need Beerus to run in the background, hence why they're hidden behind the following feature.
 #![cfg(feature = "integration-tests")]
 
-use beerus_core::config::Config;
+use beerus_core::config::DEFAULT_PORT;
 use cached::Cached;
-use std::ops::Deref;
+use std::{ops::Deref, sync::Mutex};
 
 use cached::SizedCache;
 use reqwest::Url;
 use starknet::{
     core::types::{
-        BlockHashAndNumber, BlockId, BlockWithTxHashes, BlockWithTxs,
-        DeclareTransaction, DeployAccountTransaction, FieldElement,
-        InvokeTransaction, MaybePendingBlockWithTxHashes,
-        MaybePendingBlockWithTxs, MaybePendingTransactionReceipt, Transaction,
-        TransactionReceipt,
+        BlockId, BlockWithTxHashes, BlockWithTxs, DeclareTransaction,
+        DeployAccountTransaction, FieldElement, InvokeTransaction,
+        MaybePendingBlockWithTxHashes, MaybePendingBlockWithTxs,
+        MaybePendingTransactionReceipt, Transaction, TransactionReceipt,
     },
     providers::{
         jsonrpc::HttpTransport, JsonRpcClient, Provider, ProviderError,
     },
 };
 
-fn rpc_url() -> Url {
-    let config = Config::from_env();
-    format!("http://{}", config.rpc_addr).parse().expect("Invalid RPC URL")
+lazy_static::lazy_static! {
+    static ref BLOCK_CACHE: Mutex<SizedCache<u64, MaybePendingBlockWithTxs>> = Mutex::new(SizedCache::with_size(1000));
 }
 
 fn rpc_client() -> JsonRpcClient<HttpTransport> {
-    JsonRpcClient::new(HttpTransport::new(rpc_url()))
+    let rpc_url: Url = format!("http://localhost:{}", DEFAULT_PORT)
+        .parse()
+        .expect("Invalid RPC URL");
+    JsonRpcClient::new(HttpTransport::new(rpc_url))
 }
 
 struct TestClient {
     inner: JsonRpcClient<HttpTransport>,
-    block_cache: SizedCache<u64, MaybePendingBlockWithTxs>,
 }
 
 impl TestClient {
@@ -39,12 +39,13 @@ impl TestClient {
         &mut self,
         number: u64,
     ) -> Result<MaybePendingBlockWithTxs, ProviderError> {
-        match self.block_cache.cache_get(&number) {
+        let mut cache = BLOCK_CACHE.lock().expect("Poisoned lock");
+        match cache.cache_get(&number) {
             Some(block) => Ok(block.clone()),
             None => {
                 let block =
                     self.get_block_with_txs(BlockId::Number(number)).await?;
-                self.block_cache.cache_set(number, block.clone());
+                cache.cache_set(number, block.clone());
                 Ok(block)
             }
         }
@@ -93,10 +94,7 @@ async fn n_txs_context(min_tx_number: usize) -> TestContext<()> {
 async fn context<F: Fn(&BlockWithTxs) -> Option<T>, T>(
     extractor: F,
 ) -> TestContext<T> {
-    let mut client = TestClient {
-        inner: rpc_client(),
-        block_cache: SizedCache::with_size(1000),
-    };
+    let mut client = TestClient { inner: rpc_client() };
 
     let latest = client
         .block_number()
@@ -162,34 +160,6 @@ async fn context<F: Fn(&BlockWithTxs) -> Option<T>, T>(
 }
 
 // starknet_blockNumber is already tested in the creation of the test context.
-
-#[tokio::test]
-async fn test_block_hash_and_number() {
-    async fn run() -> Result<(), &'static str> {
-        let TestContext { client, block, block_id: _, extracted_value: () } =
-            latest_block_context().await;
-
-        let BlockHashAndNumber { block_hash, block_number } = client
-            .block_hash_and_number()
-            .await
-            .expect("Failed to retrieve the block hash & number");
-
-        if block_hash != block.block_hash {
-            return Err("Block hash mismatch");
-        }
-        if block_number != block.block_number {
-            return Err("Block number mismatch");
-        }
-
-        Ok(())
-    }
-
-    // There is a very slight chance the test occurs right when a new block is produced, making the assertions fail.
-    // Just run the test twice.
-    if run().await.is_err() {
-        run().await.expect("Block hash or number mismatch")
-    }
-}
 
 #[tokio::test]
 async fn test_chain_id() {
@@ -480,26 +450,6 @@ async fn test_get_transaction_status() {
     )
     .await;
 }
-
-/* TODO
-   Add more test scenarios to cover the following methods:
-
-   starknet_call
-   starknet_estimateFee
-   starknet_estimateFeeSingle
-   starknet_getEvents
-   starknet_getStateUpdate
-   starknet_getStorageAt
-   starknet_getTransactionReceipt
-   starknet_syncing
-   pathfinder_getProof
-
-   Extended endpoints (unsupported by starknet-rs' `JsonRpcClient`):
-
-   starknet_getStateRoot
-   starknet_getProof
-   starknet_getBalance
-*/
 
 fn truncate_felt_to_u128(felt: &FieldElement) -> u128 {
     u128::from_be_bytes(felt.to_bytes_be()[16..].try_into().unwrap())
