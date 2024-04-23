@@ -24,6 +24,7 @@ jobs:
 
       - name: start beerus RPC on MAINNET
         run: |
+          echo "Config file: $CI_CONFIG_FILE"
           # Write Beerus' config file
           rm -f $CI_CONFIG_FILE
           
