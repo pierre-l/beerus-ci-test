@@ -601,6 +601,7 @@ dependencies = [
  "cached 0.49.3",
  "eyre",
  "jsonrpsee 0.20.3",
+ "lazy_static",
  "pretty_assertions",
  "reqwest",
  "serde",
