@@ -15,6 +15,13 @@ jobs:
       STARKNET_RPC: ${{ secrets.STARKNET_RPC_0_6_0_MAINNET_ALCHEMY }}
       BEERUS_RPC_PORT: ${{ vars.IT_PORT_ALCHEMY }}
     steps:
+      # TODO Remove
+      - name: env var test
+        run: |
+          echo "Config file: ${CI_CONFIG_FILE}"
+          if [ -z "${CI_CONFIG_FILE}" ]; then
+            exit 1
+          fi
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
