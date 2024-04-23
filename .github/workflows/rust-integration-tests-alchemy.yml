@@ -5,15 +5,15 @@ on:
   push:
   workflow_dispatch:
 
-env:
-  CI_CONFIG_GILE: "ci_config.toml"
-  ETH_EXECUTION_RPC: ${{ secrets.ETH_EXECUTION_RPC_MAINNET }}
-  STARKNET_RPC: ${{ secrets.STARKNET_RPC_0_6_0_MAINNET_ALCHEMY }}
-  BEERUS_RPC_PORT: ${{ vars.IT_PORT_ALCHEMY }}
 jobs:
   integration:
     runs-on: pierre-l
     timeout-minutes: 30
+    env:
+      CI_CONFIG_GILE: "ci_config.toml"
+      ETH_EXECUTION_RPC: ${{ secrets.ETH_EXECUTION_RPC_MAINNET }}
+      STARKNET_RPC: ${{ secrets.STARKNET_RPC_0_6_0_MAINNET_ALCHEMY }}
+      BEERUS_RPC_PORT: ${{ vars.IT_PORT_ALCHEMY }}
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
