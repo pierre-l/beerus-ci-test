@@ -22,7 +22,7 @@ jobs:
           ETH_EXECUTION_RPC: ${{ secrets.ETH_EXECUTION_RPC_MAINNET }}
           STARKNET_RPC: ${{ secrets.STARKNET_RPC_0_6_0_MAINNET_ALCHEMY }}
         # Start Beerus, then try to reach the port every second for 60 seconds.
-        run: ./target/release/beerus & ./scripts/wait-for-it.sh localhost:3030 -t 120
+        run: ./target/release/beerus & ./scripts/wait-for-it.sh localhost:3030 -t 1
 
       - name: run integration test on MAINNET
         run: cargo test --package beerus-rpc --features integration-tests
