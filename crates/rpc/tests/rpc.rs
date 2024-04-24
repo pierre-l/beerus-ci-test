@@ -1,5 +1,5 @@
 // These tests need Beerus to run in the background, hence why they're hidden behind the following feature.
-// TODO #![cfg(feature = "integration-tests")]
+#![cfg(feature = "integration-tests")]
 
 use beerus_core::config::DEFAULT_PORT;
 use cached::Cached;
